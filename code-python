@@ -1,0 +1,48 @@
+# Exemple simple de modèle de transport avec PuLP
+# Objectif : minimiser le coût de transport entre entrepôts et clients
+
+import pulp as pl
+
+# Données
+supply = {"Entrepot1": 20, "Entrepot2": 40}  # capacités
+demand = {"ClientA": 25, "ClientB": 10, "ClientC": 25}  # demandes
+
+costs = {
+    ("Entrepot1", "ClientA"): 2,
+    ("Entrepot1", "ClientB"): 4,
+    ("Entrepot1", "ClientC"): 5,
+    ("Entrepot2", "ClientA"): 3,
+    ("Entrepot2", "ClientB"): 1,
+    ("Entrepot2", "ClientC"): 2,
+}
+
+# Modèle
+model = pl.LpProblem("Probleme_de_transport", pl.LpMinimize)
+
+# Variables : quantité transportée de i vers j
+x = pl.LpVariable.dicts(
+    "x",
+    ((i, j) for i in supply for j in demand),
+    lowBound=0,
+    cat="Continuous",
+)
+
+# Fonction objectif
+model += pl.lpSum(costs[(i, j)] * x[(i, j)] for i in supply for j in demand)
+
+# Contraintes de capacité (entrepôts)
+for i in supply:
+    model += pl.lpSum(x[(i, j)] for j in demand) <= supply[i], f"Capacite_{i}"
+
+# Contraintes de demande (clients)
+for j in demand:
+    model += pl.lpSum(x[(i, j)] for i in supply) >= demand[j], f"Demande_{j}"
+
+# Résolution
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status :", pl.LpStatus[model.status])
+print("Coût total =", pl.value(model.objective))
+for (i, j), var in x.items():
+    if var.value() > 0:
+        print(f"Quantité de {i} vers {j} = {var.value()}")
